@@ -2,7 +2,6 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -16,87 +15,95 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-/// --- Funções utilitárias ---
-
-// Função para cifrar (gera saída em binário)
-string VernamCipherToBinary(string message, string key)
+string GerarChaveAleatoria(int tamanho)
 {
-    if (key.Length != message.Length)
-        throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem.");
+    Random num = new Random();
+    string chave = "";
 
-    byte[] msgBytes = Encoding.UTF8.GetBytes(message);
-    byte[] keyBytes = Encoding.UTF8.GetBytes(key);
-    byte[] result = new byte[msgBytes.Length];
+    for (int i = 0; i < tamanho; i++)
+    {
+        int numero = num.Next(33, 127);
+        char caractere = (char)numero;
+        chave += caractere;
+    }
 
-    for (int i = 0; i < msgBytes.Length; i++)
-        result[i] = (byte)(msgBytes[i] ^ keyBytes[i]);
-
-    // Converte cada byte em uma sequência binária de 8 bits
-    return string.Join("", result.Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+    return chave;
 }
 
-// Função para decifrar (recebe binário)
-string VernamDecipherFromBinary(string binaryCipher, string key)
+string Cifrar(string mensagem, string chave)
 {
-    if (binaryCipher.Length % 8 != 0)
+    if (mensagem.Length != chave.Length)
+        throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem.");
+
+    var bytes = Encoding.UTF8.GetBytes(mensagem)
+        .Zip(Encoding.UTF8.GetBytes(chave), (m, c) => (byte)(m ^ c))
+        .Select(b => Convert.ToString(b, 2).PadLeft(8, '0'));
+
+    return string.Concat(bytes);
+}
+
+string Decifrar(string binario, string chave)
+{
+    if (binario.Length % 8 != 0)
         throw new ArgumentException("O texto cifrado deve ter múltiplos de 8 bits.");
 
-    int numBytes = binaryCipher.Length / 8;
-    byte[] cipherBytes = new byte[numBytes];
+    int numBytes = binario.Length / 8;
+    byte[] bytes = new byte[numBytes];
 
     for (int i = 0; i < numBytes; i++)
     {
-        string byteString = binaryCipher.Substring(i * 8, 8);
-        cipherBytes[i] = Convert.ToByte(byteString, 2);
+        string byteString = binario.Substring(i * 8, 8);
+        bytes[i] = Convert.ToByte(byteString, 2);
     }
 
-    byte[] keyBytes = Encoding.UTF8.GetBytes(key);
-    if (keyBytes.Length != cipherBytes.Length)
+    var chaveBytes = Encoding.UTF8.GetBytes(chave);
+    if (chaveBytes.Length != bytes.Length)
         throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem cifrada.");
 
-    byte[] result = new byte[cipherBytes.Length];
-    for (int i = 0; i < cipherBytes.Length; i++)
-        result[i] = (byte)(cipherBytes[i] ^ keyBytes[i]);
-
-    return Encoding.UTF8.GetString(result);
+    var decifrado = bytes.Zip(chaveBytes, (c, k) => (byte)(c ^ k));
+    return Encoding.UTF8.GetString(decifrado.ToArray());
 }
 
-// Gera uma chave aleatória do mesmo tamanho da mensagem
-string GerarChaveAleatoria(int tamanho)
+//Endpoints
+app.MapPost("/cifrar", ([FromBody] MensagemRequest req) =>
 {
-    var random = new Random();
-    var bytes = new byte[tamanho];
-    random.NextBytes(bytes);
-    // Converte bytes em caracteres imprimíveis (33–126 ASCII)
-    return Encoding.UTF8.GetString(bytes.Select(b => (byte)((b % 94) + 33)).ToArray());
-}
-
-/// --- Endpoints ---
-
-// Cifrar
-app.MapPost("/cifrar", ([FromBody] CifrarRequest request) =>
-{
-    var chave = GerarChaveAleatoria(request.Mensagem.Length);
-    var cifrada = VernamCipherToBinary(request.Mensagem, chave);
-
-    return Results.Ok(new CifrarResponse(cifrada, chave));
+    var chave = GerarChaveAleatoria(req.Mensagem.Length);
+    var cifrada = Cifrar(req.Mensagem, chave);
+    return Results.Ok(new { MensagemCifrada = cifrada, Chave = chave });
 })
-.WithName("CifrarMensagem")
 .WithOpenApi();
 
-// Decifrar
-app.MapPost("/decifrar", ([FromBody] DecifrarRequest request) =>
+app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 {
-    var mensagemOriginal = VernamDecipherFromBinary(request.MensagemCifrada, request.Chave);
-    return Results.Ok(new DecifrarResponse(mensagemOriginal));
+    var mensagem = Decifrar(req.MensagemCifrada, req.Chave);
+    return Results.Ok(new { MensagemOriginal = mensagem });
 })
-.WithName("DecifrarMensagem")
 .WithOpenApi();
 
 app.Run();
 
-/// --- DTOs ---
-public record CifrarRequest(string Mensagem);
-public record CifrarResponse(string MensagemCifrada, string Chave);
-public record DecifrarRequest(string MensagemCifrada, string Chave);
-public record DecifrarResponse(string MensagemOriginal);
+//DTOs
+public class MensagemRequest
+{
+    public string Mensagem { get; set; } 
+    
+    public MensagemRequest(string mensagem)
+    {
+        Mensagem = mensagem;
+    }
+    public MensagemRequest() { }
+}
+
+public class DecifrarRequest
+{
+    public string MensagemCifrada { get; set; }
+    public string Chave { get; set; }
+
+    public DecifrarRequest(string mensagemCifrada, string chave)
+    {
+        MensagemCifrada = mensagemCifrada;
+        Chave = chave;
+    }
+    public DecifrarRequest() { }
+}
+
