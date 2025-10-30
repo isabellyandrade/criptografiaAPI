@@ -15,6 +15,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+
 string GerarChaveAleatoria(int tamanho)
 {
     Random num = new Random();
@@ -82,7 +83,7 @@ app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 
 app.Run();
 
-//DTOs
+//classes
 public class MensagemRequest
 {
     public string Mensagem { get; set; } 

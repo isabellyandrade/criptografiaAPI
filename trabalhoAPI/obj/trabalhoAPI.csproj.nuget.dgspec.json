@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj": {}
+    "/Users/isallets/Desktop/vernam/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj": {}
   },
   "projects": {
-    "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj": {
+    "/Users/isallets/Desktop/vernam/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
+        "projectUniqueName": "/Users/isallets/Desktop/vernam/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
         "projectName": "trabalhoAPI",
-        "projectPath": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
+        "projectPath": "/Users/isallets/Desktop/vernam/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
         "packagesPath": "/Users/isallets/.nuget/packages/",
-        "outputPath": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/obj/",
+        "outputPath": "/Users/isallets/Desktop/vernam/criptografiaAPI/trabalhoAPI/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/isallets/.nuget/NuGet/NuGet.Config"
