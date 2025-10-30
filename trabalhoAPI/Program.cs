@@ -61,7 +61,7 @@ string Decifrar(string binario, string chave)
     if (chaveBytes.Length != bytes.Length)
         throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem cifrada.");
 
-    var decifrado = bytes.Zip(chaveBytes, (c, k) => (byte)(c ^ k));
+    var decifrado = bytes.Zip(chaveBytes, (mc, c) => (byte)(mc ^ c));
     return Encoding.UTF8.GetString(decifrado.ToArray());
 }
 
