@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,96 +16,121 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+const string Alfabeto = "abcdefghijklmnopqrstuvwxyz";
+int AlfabetoLen = Alfabeto.Length;
 
-string GerarChaveAleatoria(int tamanho)
+static int Shift(int shift, int modulo)
 {
-    Random num = new Random();
-    string chave = "";
+    var s = shift % modulo;
+    if (s < 0) s += modulo;
+    return s;
+}
 
-    for (int i = 0; i < tamanho; i++)
+string Cifrar(string texto, int deslocamento)
+{
+    var sb = new StringBuilder(texto.Length);
+    deslocamento = Shift(deslocamento, AlfabetoLen);
+
+    foreach (char ch in texto)
     {
-        int numero = num.Next(33, 127);
-        char caractere = (char)numero;
-        chave += caractere;
+        if (ch == ' ')
+        {
+            sb.Append(' ');
+            continue;
+        }
+
+        bool isUpper = char.IsUpper(ch);
+        char lower = char.ToLowerInvariant(ch);
+
+        int idx = Alfabeto.IndexOf(lower);
+        if (idx == -1)
+        {
+            sb.Append(ch);
+            continue;
+        }
+
+        int novaPos = (idx + deslocamento) % AlfabetoLen;
+        char cifrado = Alfabeto[novaPos];
+        if (isUpper) cifrado = char.ToUpperInvariant(cifrado);
+        sb.Append(cifrado);
     }
 
-    return chave;
+    return sb.ToString();
 }
 
-string Cifrar(string mensagem, string chave)
+string Decifrar(string textoCifrado, int deslocamento)
 {
-    if (mensagem.Length != chave.Length)
-        throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem.");
-
-    var bytes = Encoding.UTF8.GetBytes(mensagem)
-        .Zip(Encoding.UTF8.GetBytes(chave), (m, c) => (byte)(m ^ c))
-        .Select(b => Convert.ToString(b, 2).PadLeft(8, '0'));
-
-    return string.Concat(bytes);
+    return Cifrar(textoCifrado, -deslocamento);
 }
 
-string Decifrar(string binario, string chave)
+bool TextoValido(string texto)
 {
-    if (binario.Length % 8 != 0)
-        throw new ArgumentException("O texto cifrado deve ter múltiplos de 8 bits.");
-
-    int numBytes = binario.Length / 8;
-    byte[] bytes = new byte[numBytes];
-
-    for (int i = 0; i < numBytes; i++)
-    {
-        string byteString = binario.Substring(i * 8, 8);
-        bytes[i] = Convert.ToByte(byteString, 2);
-    }
-
-    var chaveBytes = Encoding.UTF8.GetBytes(chave);
-    if (chaveBytes.Length != bytes.Length)
-        throw new ArgumentException("A chave deve ter o mesmo tamanho que a mensagem cifrada.");
-
-    var decifrado = bytes.Zip(chaveBytes, (mc, c) => (byte)(mc ^ c));
-    return Encoding.UTF8.GetString(decifrado.ToArray());
+    return Regex.IsMatch(texto, @"^[a-zA-Z\s]+$");
 }
 
-//Endpoints
-app.MapPost("/cifrar", ([FromBody] MensagemRequest req) =>
+bool DeslocamentoValido(int deslocamento)
 {
-    var chave = GerarChaveAleatoria(req.Mensagem.Length);
-    var cifrada = Cifrar(req.Mensagem, chave);
-    return Results.Ok(new { MensagemCifrada = cifrada, Chave = chave });
+    return deslocamento > 0 && deslocamento <= 25;
+}
+
+// Endpoints
+app.MapPost("/cifrar", ([FromBody] CifrarRequest req) =>
+{
+    if (req == null || req.TextoClaro == null)
+        return Results.BadRequest(new { Erro = "Envie textoClaro e deslocamento." });
+
+    if (!TextoValido(req.TextoClaro))
+        return Results.BadRequest(new { Erro = "O texto não pode conter caracteres especiais." });
+
+    if (!DeslocamentoValido(req.Deslocamento))
+        return Results.BadRequest(new { Erro = "O deslocamento deve ser maior que 0 e menor ou igual a 25." });
+
+    var cifrado = Cifrar(req.TextoClaro, req.Deslocamento);
+    return Results.Ok(new { textoCifrado = cifrado });
 })
 .WithOpenApi();
 
 app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 {
-    var mensagem = Decifrar(req.MensagemCifrada, req.Chave);
-    return Results.Ok(new { MensagemOriginal = mensagem });
+    if (req == null || req.TextoCifrado == null)
+        return Results.BadRequest(new { Erro = "Envie textoCifrado e deslocamento." });
+
+    if (!TextoValido(req.TextoCifrado))
+        return Results.BadRequest(new { Erro = "O texto não pode conter caracteres especiais." });
+
+    if (!DeslocamentoValido(req.Deslocamento))
+        return Results.BadRequest(new { Erro = "O deslocamento deve ser maior que 0 e menor ou igual a 25." });
+
+    var original = Decifrar(req.TextoCifrado, req.Deslocamento);
+    return Results.Ok(new { textoClaro = original });
 })
 .WithOpenApi();
 
 app.Run();
 
-//classes
-public class MensagemRequest
+// Classes
+public class CifrarRequest
 {
-    public string Mensagem { get; set; } 
-    
-    public MensagemRequest(string mensagem)
+    public string? TextoClaro { get; set; }
+    public int Deslocamento { get; set; }
+
+    public CifrarRequest() { }
+    public CifrarRequest(string textoClaro, int deslocamento)
     {
-        Mensagem = mensagem;
+        TextoClaro = textoClaro;
+        Deslocamento = deslocamento;
     }
-    public MensagemRequest() { }
 }
 
 public class DecifrarRequest
 {
-    public string MensagemCifrada { get; set; }
-    public string Chave { get; set; }
+    public string? TextoCifrado { get; set; }
+    public int Deslocamento { get; set; }
 
-    public DecifrarRequest(string mensagemCifrada, string chave)
-    {
-        MensagemCifrada = mensagemCifrada;
-        Chave = chave;
-    }
     public DecifrarRequest() { }
+    public DecifrarRequest(string textoCifrado, int deslocamento)
+    {
+        TextoCifrado = textoCifrado;
+        Deslocamento = deslocamento;
+    }
 }
-
