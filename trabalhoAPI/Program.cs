@@ -122,61 +122,70 @@ app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory http
     var client = httpClientFactory.CreateClient();
     var texto = req.TextoCifrado.Trim();
 
-    for (int deslocamento = 1; deslocamento <= 25; deslocamento++)
-{
-    var tentativa = Decifrar(texto, deslocamento);
-    var palavras = tentativa.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-    foreach (var palavra in palavras)
+    string RemoverAcentos(string input)
     {
-        var url = $"https://www.dicio.com.br/{palavra}/";
-        try
+        var normalized = input.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
         {
-            var response = await client.GetAsync(url);
-            if (response.IsSuccessStatusCode)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    for (int deslocamento = 1; deslocamento <= 25; deslocamento++)
+    {
+        var tentativa = Decifrar(texto, deslocamento);
+        var palavras = tentativa.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        int validas = 0;
+
+        foreach (var palavra in palavras)
+        {
+            var url = $"https://www.dicio.com.br/{palavra}/";
+            try
             {
-                var html = await response.Content.ReadAsStringAsync();
-
-                // Função auxiliar para remover acentos
-                string RemoverAcentos(string input)
+                var response = await client.GetAsync(url);
+                if (response.IsSuccessStatusCode)
                 {
-                    var normalized = input.Normalize(NormalizationForm.FormD);
-                    var sb = new StringBuilder();
-                    foreach (var c in normalized)
+                    var html = await response.Content.ReadAsStringAsync();
+                    var htmlSemAcento = RemoverAcentos(html);
+                    var palavraSemAcento = RemoverAcentos(palavra);
+
+                    if (Regex.IsMatch(htmlSemAcento, $"<h1[^>]*>[^<]*\\b{Regex.Escape(palavraSemAcento)}\\b", RegexOptions.IgnoreCase))
                     {
-                        if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
-                            != System.Globalization.UnicodeCategory.NonSpacingMark)
-                            sb.Append(c);
+                        validas++;
                     }
-                    return sb.ToString().Normalize(NormalizationForm.FormC);
-                }
-
-                var htmlSemAcento = RemoverAcentos(html);
-                var palavraSemAcento = RemoverAcentos(palavra);
-
-                if (Regex.IsMatch(htmlSemAcento, $"<h1[^>]*>[^<]*\\b{Regex.Escape(palavraSemAcento)}\\b", RegexOptions.IgnoreCase))
-                {
-                    Console.WriteLine($"✅ Palavra encontrada: {palavra} (deslocamento {deslocamento})");
-
-                    return Results.Ok(new
-                    {
-                        textoClaro = tentativa,
-                        deslocamentoEncontrado = deslocamento
-                    });
                 }
             }
+            catch
+            {
+                // ignora falhas de rede
+            }
         }
-        catch
+
+        // 🔹 Critério: mais da metade das palavras precisam existir
+        // 🔹 Critério: mais da metade das palavras precisam existir
+        if (validas > 0 && validas >= Math.Max(2, palavras.Length / 2))
         {
-            // ignora falhas de rede
+            Console.WriteLine($"✅ Frase válida encontrada: {tentativa} (deslocamento {deslocamento})");
+            return Results.Ok(new
+            {
+                textoClaro = tentativa,
+                deslocamentoEncontrado = deslocamento
+            });
         }
+        else
+        {
+            Console.WriteLine($"❌ Tentativa descartada: {tentativa} (válidas: {validas}/{palavras.Length})");
+        }
+
     }
-}
-    Console.WriteLine("❌ Nenhuma correspondência válida encontrada.");
+
     return Results.NotFound(new { Erro = "Nenhuma correspondência válida encontrada." });
 })
 .WithOpenApi();
-
 
 app.Run();
 
