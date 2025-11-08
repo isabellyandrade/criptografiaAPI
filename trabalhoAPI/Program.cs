@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
@@ -16,9 +17,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Alfabeto permitido: apenas letras minúsculas
 const string Alfabeto = "abcdefghijklmnopqrstuvwxyz";
 int AlfabetoLen = Alfabeto.Length;
 
+// Funções utilitárias
 static int Shift(int shift, int modulo)
 {
     var s = shift % modulo;
@@ -39,10 +42,8 @@ string Cifrar(string texto, int deslocamento)
             continue;
         }
 
-        bool isUpper = char.IsUpper(ch);
-        char lower = char.ToLowerInvariant(ch);
-
-        int idx = Alfabeto.IndexOf(lower);
+        // Apenas letras minúsculas
+        int idx = Alfabeto.IndexOf(ch);
         if (idx == -1)
         {
             sb.Append(ch);
@@ -50,9 +51,7 @@ string Cifrar(string texto, int deslocamento)
         }
 
         int novaPos = (idx + deslocamento) % AlfabetoLen;
-        char cifrado = Alfabeto[novaPos];
-        if (isUpper) cifrado = char.ToUpperInvariant(cifrado);
-        sb.Append(cifrado);
+        sb.Append(Alfabeto[novaPos]);
     }
 
     return sb.ToString();
@@ -65,7 +64,8 @@ string Decifrar(string textoCifrado, int deslocamento)
 
 bool TextoValido(string texto)
 {
-    return Regex.IsMatch(texto, @"^[a-zA-Z\s]+$");
+    // Apenas letras minúsculas e espaços
+    return Regex.IsMatch(texto, @"^[a-z\s]+$");
 }
 
 bool DeslocamentoValido(int deslocamento)
@@ -73,14 +73,18 @@ bool DeslocamentoValido(int deslocamento)
     return deslocamento > 0 && deslocamento <= 25;
 }
 
-// Endpoints
+// -------------------------
+// ENDPOINTS
+// -------------------------
+
+// Cifrar
 app.MapPost("/cifrar", ([FromBody] CifrarRequest req) =>
 {
-    if (req == null || req.TextoClaro == null)
+    if (req == null || string.IsNullOrWhiteSpace(req.TextoClaro))
         return Results.BadRequest(new { Erro = "Envie textoClaro e deslocamento." });
 
     if (!TextoValido(req.TextoClaro))
-        return Results.BadRequest(new { Erro = "O texto não pode conter caracteres especiais." });
+        return Results.BadRequest(new { Erro = "O texto deve conter apenas letras minúsculas de a-z e espaços." });
 
     if (!DeslocamentoValido(req.Deslocamento))
         return Results.BadRequest(new { Erro = "O deslocamento deve ser maior que 0 e menor ou igual a 25." });
@@ -90,13 +94,14 @@ app.MapPost("/cifrar", ([FromBody] CifrarRequest req) =>
 })
 .WithOpenApi();
 
+// Decifrar
 app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 {
-    if (req == null || req.TextoCifrado == null)
+    if (req == null || string.IsNullOrWhiteSpace(req.TextoCifrado))
         return Results.BadRequest(new { Erro = "Envie textoCifrado e deslocamento." });
 
     if (!TextoValido(req.TextoCifrado))
-        return Results.BadRequest(new { Erro = "O texto não pode conter caracteres especiais." });
+        return Results.BadRequest(new { Erro = "O texto deve conter apenas letras minúsculas de a-z e espaços." });
 
     if (!DeslocamentoValido(req.Deslocamento))
         return Results.BadRequest(new { Erro = "O deslocamento deve ser maior que 0 e menor ou igual a 25." });
@@ -106,31 +111,92 @@ app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 })
 .WithOpenApi();
 
+app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory httpClientFactory, [FromBody] DecifrarForcaBrutaRequest req) =>
+{
+    if (req == null || string.IsNullOrWhiteSpace(req.TextoCifrado))
+        return Results.BadRequest(new { Erro = "Envie textoCifrado." });
+
+    if (!Regex.IsMatch(req.TextoCifrado, @"^[a-z\s]+$"))
+        return Results.BadRequest(new { Erro = "O texto deve conter apenas letras minúsculas de a-z e espaços." });
+
+    var client = httpClientFactory.CreateClient();
+    var texto = req.TextoCifrado.Trim();
+
+    for (int deslocamento = 1; deslocamento <= 25; deslocamento++)
+{
+    var tentativa = Decifrar(texto, deslocamento);
+    var palavras = tentativa.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    foreach (var palavra in palavras)
+    {
+        var url = $"https://www.dicio.com.br/{palavra}/";
+        try
+        {
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var html = await response.Content.ReadAsStringAsync();
+
+                // Função auxiliar para remover acentos
+                string RemoverAcentos(string input)
+                {
+                    var normalized = input.Normalize(NormalizationForm.FormD);
+                    var sb = new StringBuilder();
+                    foreach (var c in normalized)
+                    {
+                        if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                            != System.Globalization.UnicodeCategory.NonSpacingMark)
+                            sb.Append(c);
+                    }
+                    return sb.ToString().Normalize(NormalizationForm.FormC);
+                }
+
+                var htmlSemAcento = RemoverAcentos(html);
+                var palavraSemAcento = RemoverAcentos(palavra);
+
+                if (Regex.IsMatch(htmlSemAcento, $"<h1[^>]*>[^<]*\\b{Regex.Escape(palavraSemAcento)}\\b", RegexOptions.IgnoreCase))
+                {
+                    Console.WriteLine($"✅ Palavra encontrada: {palavra} (deslocamento {deslocamento})");
+
+                    return Results.Ok(new
+                    {
+                        textoClaro = tentativa,
+                        deslocamentoEncontrado = deslocamento
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // ignora falhas de rede
+        }
+    }
+}
+    Console.WriteLine("❌ Nenhuma correspondência válida encontrada.");
+    return Results.NotFound(new { Erro = "Nenhuma correspondência válida encontrada." });
+})
+.WithOpenApi();
+
+
 app.Run();
 
-// Classes
+// -------------------------
+// CLASSES DE REQUISIÇÃO
+// -------------------------
+
 public class CifrarRequest
 {
     public string? TextoClaro { get; set; }
     public int Deslocamento { get; set; }
-
-    public CifrarRequest() { }
-    public CifrarRequest(string textoClaro, int deslocamento)
-    {
-        TextoClaro = textoClaro;
-        Deslocamento = deslocamento;
-    }
 }
 
 public class DecifrarRequest
 {
     public string? TextoCifrado { get; set; }
     public int Deslocamento { get; set; }
+}
 
-    public DecifrarRequest() { }
-    public DecifrarRequest(string textoCifrado, int deslocamento)
-    {
-        TextoCifrado = textoCifrado;
-        Deslocamento = deslocamento;
-    }
+public class DecifrarForcaBrutaRequest
+{
+    public string? TextoCifrado { get; set; }
 }

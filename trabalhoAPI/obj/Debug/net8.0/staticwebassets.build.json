@@ -1,12 +1,11 @@
 {
   "Version": 1,
-  "Hash": "Cw7rMZj0Af2Sfr9riOT8aIkj6S7DGSMD48ZPeFeroso=",
+  "Hash": "aFwSlmXLT1Gyd0dt8RyA650VCZ7rkKstDxQeibxNDk0=",
   "Source": "trabalhoAPI",
   "BasePath": "_content/trabalhoAPI",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [],
-  "Assets": [],
-  "Endpoints": []
+  "Assets": []
 }
