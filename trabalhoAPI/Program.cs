@@ -17,11 +17,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Alfabeto permitido: apenas letras minúsculas
 const string Alfabeto = "abcdefghijklmnopqrstuvwxyz";
 int AlfabetoLen = Alfabeto.Length;
 
-// Funções utilitárias
+// Funções
 static int Shift(int shift, int modulo)
 {
     var s = shift % modulo;
@@ -42,7 +41,6 @@ string Cifrar(string texto, int deslocamento)
             continue;
         }
 
-        // Apenas letras minúsculas
         int idx = Alfabeto.IndexOf(ch);
         if (idx == -1)
         {
@@ -64,7 +62,6 @@ string Decifrar(string textoCifrado, int deslocamento)
 
 bool TextoValido(string texto)
 {
-    // Apenas letras minúsculas e espaços
     return Regex.IsMatch(texto, @"^[a-z\s]+$");
 }
 
@@ -73,9 +70,7 @@ bool DeslocamentoValido(int deslocamento)
     return deslocamento > 0 && deslocamento <= 25;
 }
 
-// -------------------------
-// ENDPOINTS
-// -------------------------
+//Endpoints
 
 // Cifrar
 app.MapPost("/cifrar", ([FromBody] CifrarRequest req) =>
@@ -162,36 +157,30 @@ app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory http
             }
             catch
             {
-                // ignora falhas de rede
             }
         }
 
-        // ✅ Nova condição: todas as palavras precisam ser válidas
         if (validas == palavras.Length && validas > 0)
         {
-            Console.WriteLine($"✅ Frase válida encontrada: {tentativa} (deslocamento {deslocamento})");
+            Console.WriteLine($"Palavra encontrada: {tentativa}");
             return Results.Ok(new
             {
                 textoClaro = tentativa,
-                deslocamentoEncontrado = deslocamento
             });
         }
         else
         {
-            Console.WriteLine($"❌ Tentativa descartada: {tentativa} (válidas: {validas}/{palavras.Length})");
+            Console.WriteLine($"Palavra ainda não encontrada: {tentativa} (válidas: {validas}/{palavras.Length})");
         }
     }
 
-    return Results.NotFound(new { Erro = "Nenhuma correspondência válida encontrada." });
+    return Results.NotFound(new { Erro = "Nenhuma palavra válida foi encontrada." });
 })
 .WithOpenApi();
 
 app.Run();
 
-// -------------------------
-// CLASSES DE REQUISIÇÃO
-// -------------------------
-
+//Classes
 public class CifrarRequest
 {
     public string? TextoClaro { get; set; }
