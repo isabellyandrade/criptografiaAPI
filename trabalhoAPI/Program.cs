@@ -111,6 +111,7 @@ app.MapPost("/decifrar", ([FromBody] DecifrarRequest req) =>
 })
 .WithOpenApi();
 
+// Decifrar com força bruta
 app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory httpClientFactory, [FromBody] DecifrarForcaBrutaRequest req) =>
 {
     if (req == null || string.IsNullOrWhiteSpace(req.TextoCifrado))
@@ -165,9 +166,8 @@ app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory http
             }
         }
 
-        // 🔹 Critério: mais da metade das palavras precisam existir
-        // 🔹 Critério: mais da metade das palavras precisam existir
-        if (validas > 0 && validas >= Math.Max(2, palavras.Length / 2))
+        // ✅ Nova condição: todas as palavras precisam ser válidas
+        if (validas == palavras.Length && validas > 0)
         {
             Console.WriteLine($"✅ Frase válida encontrada: {tentativa} (deslocamento {deslocamento})");
             return Results.Ok(new
@@ -180,7 +180,6 @@ app.MapPost("/decifrarForcaBruta", async ([FromServices] IHttpClientFactory http
         {
             Console.WriteLine($"❌ Tentativa descartada: {tentativa} (válidas: {validas}/{palavras.Length})");
         }
-
     }
 
     return Results.NotFound(new { Erro = "Nenhuma correspondência válida encontrada." });

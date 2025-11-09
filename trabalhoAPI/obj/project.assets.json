@@ -474,11 +474,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
+      "projectUniqueName": "/Users/isallets/Desktop/criptografiaAPI-1/trabalhoAPI/trabalhoAPI.csproj",
       "projectName": "trabalhoAPI",
-      "projectPath": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/trabalhoAPI.csproj",
+      "projectPath": "/Users/isallets/Desktop/criptografiaAPI-1/trabalhoAPI/trabalhoAPI.csproj",
       "packagesPath": "/Users/isallets/.nuget/packages/",
-      "outputPath": "/Users/isallets/Desktop/criptografiaAPI/trabalhoAPI/obj/",
+      "outputPath": "/Users/isallets/Desktop/criptografiaAPI-1/trabalhoAPI/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/isallets/.nuget/NuGet/NuGet.Config"
